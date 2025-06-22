@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FENG SHUI MASTER</title>
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #E81F27;
+            color: black;
+            font-family: 'Oswald', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            overflow: hidden; /* 崩れ落ちた文字がはみ出さないように */
+            position: relative;
+            perspective: 1000px; /* 3D効果のために追加 */
+        }
+
+        .text-container {
+            position: relative;
+            width: 90vw; /* 画面幅に合わせて調整 */
+            max-width: 1200px; /* 最大幅を設定 */
+            text-align: center;
+            line-height: 1.2;
+            word-break: break-word; /* 長い単語の途中で改行 */
+            white-space: normal; /* 折り返しを有効にする */
+            font-size: 3vw; /* フォントサイズ */
+            pointer-events: none; /* クリックイベントを無効化 */
+        }
+
+        .char {
+            display: inline-block;
+            opacity: 1;
+            transform: translateZ(0); /* GPUアクセラレーションを有効にする */
+            transition: transform 0s, opacity 0s; /* デフォルトのトランジションを0に */
+            will-change: transform, opacity; /* アニメーションの最適化 */
+        }
+
+        /* 崩れ落ちるアニメーション */
+        @keyframes fall {
+            0% {
+                opacity: 1;
+                transform: translateY(0) rotate(0deg) scale(1);
+            }
+            100% {
+                opacity: 0.2; /* 完全に消えないように調整 */
+                transform: translateY(calc(100vh - 20% - var(--initial-top))) rotate(var(--rotate-deg)) scale(0.8);
+                /* translateYを調整して画面下部に積もるように */
+            }
+        }
+
+        /* 積もる文字のスタイル */
+        .stacked-char {
+            position: absolute;
+            opacity: 1;
+            font-size: 3vw; /* 元のサイズを維持 */
+            color: black;
+            font-family: 'Oswald', sans-serif;
+            pointer-events: none;
+            /* 動きの滑らかさを維持するためのトランジション */
+            transition: transform 1s ease-out, opacity 0.5s ease-out;
+            will-change: transform, opacity;
+        }
+
+        /* storytelerの形成アニメーション */
+        @keyframes assemble-storyteller {
+            0% { opacity: 0; transform: scale(0.5); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        .final-storyteller {
+            position: absolute;
+            font-family: 'Oswald', sans-serif;
+            font-weight: 500;
+            font-size: 10vw; /* 大きく表示 */
+            color: black;
+            opacity: 0;
+            z-index: 100;
+            white-space: nowrap; /* 改行させない */
+            transition: all 1.5s ease-in-out; /* ヌルッと集まるアニメーション */
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.5); /* 初期状態は小さく中央に */
+        }
+    </style>
+</head>
+<body>
+    <div class="text-container" id="textContainer"></div>
+    <div class="final-storyteller" id="finalStoryteller">storyteller</div>
+
+    <script>
+        const originalText = `FENG SHUI MASTER / BARBER BORDER HOPPER / MATCHMAKER / NEW YORKER AUXILIARY POLICE TAILOR / DRONE PILOT TEA HOUSE OWNER STREET ARTIST / MONK NEW YORKER / TAILOR / SOCIAL WORKER CHEESE ARTISAN / FORTUNE TELLER / PRIEST MONK STORYTELLER / KUNG FU MASTER / HOMELESS MATCHMAKER / PRESCHOOL TEACHER
+GRAFFITI ARTIST FENG SHUI MASTER
+PRIEST / JUDGE ENGLISH TEACHER / BORDER HOPPER NEW YORKER COMMUNITY LEADER / SOCIAL WORKER NOVELIST NEW YORKER CHINESE MEDICINE DOCTOR / CHEESE ARTISAN STREET ARTIST JOURNALIST / AUXILIARY POLICE PROFESSOR
+DRONE PILOT NEW YORKER / FENG SHUI MASTER STORYTELLER
+MURALIST BORDER HOPPER / TEA HOUSE OWNER / CHEESE ARTISAN / JUDGE
+SOCIAL WORKER JEWELER / NOVELIST / PRIEST / MURALIST
+COMMUNITY MEMBER / ENGLISH TEACHER BARBER
+GRAFFITI ARTIST / PROFESSOR SOCIAL WORKER TAILOR
+ENGLISH TEACHER MATCHMAKER HOMELESS
+HOMELESS STREET SINGER / STORYTELLER MONK
+STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR
+FENG SHUI MASTER / BARBER BORDER HOPPER / MATCHMAKER / NEW YORKER AUXILIARY POLICE TAILOR / DRONE PILOT TEA HOUSE OWNER STREET ARTIST / MONK NEW YORKER / TAILOR / SOCIAL WORKER CHEESE ARTISAN / FORTUNE TELLER / PRIEST MONK STORYTELLER / KUNG FU MASTER / HOMELESS MATCHMAKER / PRESCHOOL TEACHER
+GRAFFITI ARTIST FENG SHUI MASTER
+PRIEST / JUDGE ENGLISH TEACHER / BORDER HOPPER NEW YORKER COMMUNITY LEADER / SOCIAL WORKER NOVELIST NEW YORKER CHINESE MEDICINE DOCTOR / CHEESE ARTISAN STREET ARTIST JOURNALIST / AUXILIARY POLICE PROFESSOR
+DRONE PILOT NEW YORKER / FENG SHUI MASTER STORYTELLER
+MURALIST BORDER HOPPER / TEA HOUSE OWNER / CHEESE ARTISAN / JUDGE
+SOCIAL WORKER JEWELER / NOVELIST / PRIEST / MURALIST
+COMMUNITY MEMBER / ENGLISH TEACHER BARBER
+GRAFFITI ARTIST / PROFESSOR SOCIAL WORKER TAILOR
+ENGLISH TEACHER MATCHMAKER HOMELESS
+HOMELESS STREET SINGER / STORYTELLER MONK
+STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR
+FENG SHUI MASTER / BARBER BORDER HOPPER / MATCHMAKER / NEW YORKER AUXILIARY POLICE TAILOR / DRONE PILOT TEA HOUSE OWNER STREET ARTIST / MONK NEW YORKER / TAILOR / SOCIAL WORKER CHEESE ARTISAN / FORTUNE TELLER / PRIEST MONK STORYTELLER / KUNG FU MASTER / HOMELESS MATCHMAKER / PRESCHOOL TEACHER
+GRAFFITI ARTIST FENG SHUI MASTER
+PRIEST / JUDGE ENGLISH TEACHER / BORDER HOPPER NEW YORKER COMMUNITY LEADER / SOCIAL WORKER NOVELIST NEW YORKER CHINESE MEDICINE DOCTOR / CHEESE ARTISAN STREET ARTIST JOURNALIST / AUXILIARY POLICE PROFESSOR
+DRONE PILOT NEW YORKER / FENG SHUI MASTER STORYTELLER
+MURALIST BORDER HOPPER / TEA HOUSE OWNER / CHEESE ARTISAN / JUDGE
+SOCIAL WORKER JEWELER / NOVELIST / PRIEST / MURALIST
+COMMUNITY MEMBER / ENGLISH TEACHER BARBER
+GRAFFITI ARTIST / PROFESSOR SOCIAL WORKER TAILOR
+ENGLISH TEACHER MATCHMAKER HOMELESS
+HOMELESS STREET SINGER / STORYTELLER MONK
+STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
+
+        const textContainer = document.getElementById('textContainer');
+        const finalStoryteller = document.getElementById('finalStoryteller');
+        let chars = []; // 全ての文字要素を格納する配列
+
+        // ③ ページ表示時に文章を表示
+        function initializeText() {
+            originalText.split('').forEach(char => {
+                const span = document.createElement('span');
+                span.className = 'char';
+                span.textContent = char;
+                textContainer.appendChild(span);
+                chars.push(span);
+            });
+        }
+
+        // ④ 文字がバラバラと崩れ落ちるアニメーション
+        function startFallingAnimation() {
+            const containerRect = textContainer.getBoundingClientRect();
+            const bodyRect = document.body.getBoundingClientRect();
+            const centerPointX = containerRect.left + containerRect.width / 2;
+            const centerPointY = containerRect.top + containerRect.height / 2; // 中央から落ち始めるように調整
+
+            chars.forEach((char, index) => {
+                const charRect = char.getBoundingClientRect();
+                const initialTop = charRect.top - bodyRect.top; // ボディの上端からの相対位置
+                const initialLeft = charRect.left - bodyRect.left; // ボディの左端からの相対位置
+
+                const delay = 3000 + Math.random() * 2000; // 3秒後から2秒の範囲でランダムに開始
+                const duration = 6000 + Math.random() * 4000; // 全体が6秒で崩れる + 個別の文字の落ちる時間を考慮
+
+                // 中心からの距離に基づいて開始を遅らせる
+                const distanceFromCenter = Math.sqrt(Math.pow(charRect.left - centerPointX, 2) + Math.pow(charRect.top - centerPointY, 2));
+                const propagationDelay = (distanceFromCenter / Math.max(containerRect.width, containerRect.height)) * 2000; // 最大2秒の伝播遅延
+                const finalDelay = delay + propagationDelay; // 伝播遅延を加味した最終的な開始遅延
+
+                const rotateDeg = (Math.random() - 0.5) * 720; // -360degから360degの回転
+                const translateX = (Math.random() - 0.5) * 50; // 左右の揺れ
+                const translateY_fall = `calc(100vh - 20% - ${initialTop}px + ${Math.random() * 50}px)`; // 画面下部20%に積もるように調整
+
+                char.style.setProperty('--initial-top', `${initialTop}px`);
+                char.style.setProperty('--rotate-deg', `${rotateDeg}deg`);
+
+                char.style.animation = `fall ${duration / 1000}s ease-in-out ${finalDelay / 1000}s forwards`;
+
+                // 崩れ落ちた文字を積もらせる処理
+                setTimeout(() => {
+                    char.style.position = 'absolute';
+                    char.style.left = `${initialLeft + translateX}px`; // 左右の揺れを反映
+                    char.style.top = `${window.innerHeight * 0.8 - charRect.height / 2 + (Math.random() - 0.5) * 20}px`; // 下から20%の範囲にランダムに配置
+                    char.style.opacity = '1'; // フェードアウトしない
+                    char.style.transform = `translateZ(0) rotate(${rotateDeg}deg) scale(0.8)`;
+                    char.classList.add('stacked-char');
+                    char.style.animation = ''; // アニメーションを解除
+                }, finalDelay + duration);
+            });
+
+            // ⑥ 崩れ落ちた文字が全て積もる際に、大きな「storyteller」の形を形成
+            const totalFallTime = 3000 + 6000 + 2000; // 最小開始遅延 + 最小アニメーション時間 + 最大伝播遅延
+            setTimeout(() => {
+                chars.forEach(char => {
+                    char.style.transition = 'transform 1.5s ease-in-out, opacity 1.5s ease-in-out'; // ヌルッと集まるためのトランジション
+                    char.style.opacity = '0'; // 最終的に見えなくする
+                    char.style.transform = `scale(0.1) rotateY(${Math.random() * 360}deg) rotateX(${Math.random() * 360}deg)`; // 集まる前にランダムな回転
+                });
+
+                // ⑦ ⑧で表示されたstorytellerは、画面中央に移動するとともに、指定したフォントとなる。その後消えずに残る
+                setTimeout(() => {
+                    finalStoryteller.style.opacity = '1';
+                    finalStoryteller.style.transform = 'translate(-50%, -50%) scale(1)'; // 中央に移動し、元のサイズに戻す
+                }, 1000); // charsが完全に消えるのを待つ
+            }, totalFallTime);
+        }
+
+        initializeText();
+        // 3秒後にアニメーションを開始
+        setTimeout(startFallingAnimation, 3000);
+    </script>
+</body>
+</html>
