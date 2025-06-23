@@ -15,7 +15,7 @@
             align-items: center;
             min-height: 100vh;
             margin: 0;
-            overflow: hidden; /* 崩れ落ちた文字がはみ出さないように */
+            overflow: hidden; /* 画面外に落ちる文字のためにoverflowを許可することも検討可能ですが、今回は画面外に隠れるようにhiddenを維持します */
             position: relative;
             perspective: 1000px; /* 3D効果のために追加 */
         }
@@ -40,58 +40,45 @@
             position: relative; /* アニメーション中に位置を正確に把握するため */
         }
 
-        /* 崩れ落ちるアニメーション */
-        @keyframes fall {
-            0% {
-                opacity: 1;
-                transform: translateY(0) rotate(0deg) scale(1);
-            }
-            100% {
-                opacity: 0.2; /* 完全に消えないように調整 */
-                transform: translateY(var(--final-y)) rotate(var(--rotate-deg)) scale(0.8);
-            }
-        }
-
-        /* 文字が引っかかって止まるアニメーション */
-        @keyframes fall-and-stop {
+        /* 文字が落下して止まるアニメーション */
+        @keyframes fall-and-hold {
             0% {
                 opacity: 1;
                 transform: translateY(0) rotate(0deg) scale(1);
             }
             80% { /* 停止位置に到達 */
-                transform: translateY(var(--stop-y)) rotate(var(--rotate-deg)) scale(0.9);
+                transform: translateY(var(--target-y-offset)) rotate(var(--rotate-deg)) scale(0.9);
                 opacity: 1;
             }
             100% { /* 停止状態を維持 */
-                transform: translateY(var(--stop-y)) rotate(var(--rotate-deg)) scale(0.9);
+                transform: translateY(var(--target-y-offset)) rotate(var(--rotate-deg)) scale(0.9);
                 opacity: 1;
             }
         }
 
-        /* 積もる文字のスタイル（引っかかって止まる文字も含む） */
-        .stopped-char {
-            position: absolute; /* アニメーション終了後に絶対位置に固定 */
-            opacity: 1;
-            font-size: 3vw; /* 元のサイズを維持 */
+        /* 最終的なstorytellerの形を形成する文字のスタイル */
+        .storyteller-char {
+            position: absolute;
+            opacity: 0; /* 最初は透明 */
             color: black;
             font-family: 'Oswald', sans-serif;
             pointer-events: none;
-            will-change: transform, opacity;
-            z-index: 1; /* storytellerの下になるように */
-            transition: transform 1.5s ease-out, opacity 1.5s ease-out; /* 最終的なstorytellerへの移行用 */
+            transition: transform 1.5s ease-in-out, opacity 1.5s ease-in-out; /* ヌルッと集まるアニメーション */
+            font-size: 3vw; /* 元の文字サイズを保持 */
+            z-index: 2; /* 通常の文字より前面に */
         }
 
-        /* storytelerの形成アニメーション */
-        .final-storyteller {
+        /* 最終的に固定されるstorytellerのフォント */
+        .final-storyteller-text {
             position: absolute;
             font-family: 'Oswald', sans-serif;
             font-weight: 500;
             font-size: 10vw; /* 大きく表示 */
             color: black;
-            opacity: 0;
+            opacity: 0; /* 最初は透明 */
             z-index: 100; /* 最前面に表示 */
             white-space: nowrap; /* 改行させない */
-            transition: all 1.5s ease-in-out; /* ヌルッと集まるアニメーション */
+            transition: all 1.5s ease-in-out; /* ヌルッと移動・拡大 */
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%) scale(0.5); /* 初期状態は小さく中央に */
@@ -100,7 +87,7 @@
 </head>
 <body>
     <div class="text-container" id="textContainer"></div>
-    <div class="final-storyteller" id="finalStoryteller">storyteller</div>
+    <div class="final-storyteller-text" id="finalStorytellerText">storyteller</div>
 
     <script>
         const originalText = `FENG SHUI MASTER / BARBER BORDER HOPPER / MATCHMAKER / NEW YORKER AUXILIARY POLICE TAILOR / DRONE PILOT TEA HOUSE OWNER STREET ARTIST / MONK NEW YORKER / TAILOR / SOCIAL WORKER CHEESE ARTISAN / FORTUNE TELLER / PRIEST MONK STORYTELLER / KUNG FU MASTER / HOMELESS MATCHMAKER / PRESCHOOL TEACHER
@@ -138,8 +125,9 @@ HOMELESS STREET SINGER / STORYTELLER MONK
 STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
 
         const textContainer = document.getElementById('textContainer');
-        const finalStoryteller = document.getElementById('finalStoryteller');
+        const finalStorytellerText = document.getElementById('finalStorytellerText');
         let chars = []; // 全ての文字要素を格納する配列
+        let storytellerChars = []; // 「storyteller」を形成する文字要素の配列
 
         // ③ ページ表示時に文章を表示
         function initializeText() {
@@ -152,72 +140,137 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
             });
         }
 
+        // 「storyteller」の形を形成するためのターゲット座標を計算
+        function getStorytellerTargetPositions(word, charElements) {
+            const tempDiv = document.createElement('div');
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.opacity = '0';
+            tempDiv.style.fontFamily = 'Oswald, sans-serif';
+            tempDiv.style.fontWeight = '500';
+            tempDiv.style.fontSize = '10vw';
+            tempDiv.style.whiteSpace = 'nowrap';
+            tempDiv.textContent = word;
+            document.body.appendChild(tempDiv);
+
+            const rect = tempDiv.getBoundingClientRect();
+            const textWidth = rect.width;
+            const textHeight = rect.height;
+
+            const charWidth = textWidth / word.length;
+            const charHeight = textHeight;
+
+            let positions = [];
+            for (let i = 0; i < word.length; i++) {
+                positions.push({
+                    left: window.innerWidth / 2 - textWidth / 2 + i * charWidth,
+                    top: window.innerHeight / 2 - textHeight / 2
+                });
+            }
+            document.body.removeChild(tempDiv);
+            return positions;
+        }
+
         // ④ 文字がバラバラと崩れ落ちるアニメーション
         function startFallingAnimation() {
             const containerRect = textContainer.getBoundingClientRect();
             const bodyRect = document.body.getBoundingClientRect();
-            const centerPointX = containerRect.left + containerRect.width / 2;
-            const centerPointY = containerRect.top + containerRect.height / 2;
+
+            // 落下開始の基準点 (画面中央上部の左4分の1くらい)
+            const startPointX = window.innerWidth / 2 - containerRect.width / 4;
+            const startPointY = containerRect.top + containerRect.height / 4; // 上の方から開始
+
+            // storytellerの最終的な文字位置を事前に計算
+            const storytellerWord = "storyteller";
+            const storytellerTargetPositions = getStorytellerTargetPositions(storytellerWord, chars);
+            let charIndicesForStoryteller = [];
+
+            // どの文字をstorytellerに使うかランダムに選択（重複なし）
+            while (storytellerChars.length < storytellerWord.length) {
+                const randomIndex = Math.floor(Math.random() * chars.length);
+                if (!charIndicesForStoryteller.includes(randomIndex)) {
+                    storytellerChars.push(chars[randomIndex]);
+                    charIndicesForStoryteller.push(randomIndex);
+                }
+            }
 
             chars.forEach((char, index) => {
                 const charRect = char.getBoundingClientRect();
                 const initialTop = charRect.top - bodyRect.top; // ボディの上端からの相対位置
                 const initialLeft = charRect.left - bodyRect.left; // ボディの左端からの相対位置
 
-                // 文字が落ち始めるのは表示から3秒後、文字が落ちる時間は表示から8秒〜10秒
-                const delay = 3000 + Math.random() * 2000; // 3秒後からランダムに2秒追加 (伝播遅延と合わせて調整)
-                const animationDuration = 6000 + Math.random() * 2000; // 6秒〜8秒かけて落下（全体の6秒をベースに）
+                const delay = 3000 + Math.random() * 2000; // 3秒後からランダムに2秒追加
+                const animationDuration = 6000 + Math.random() * 2000; // 6秒〜8秒かけて落下
 
-                // 中心からの距離に基づいて開始を遅らせる (波紋のように伝播)
-                const distanceFromCenter = Math.sqrt(Math.pow(charRect.left + charRect.width / 2 - centerPointX, 2) + Math.pow(charRect.top + charRect.height / 2 - centerPointY, 2));
-                const propagationDelay = (distanceFromCenter / Math.max(containerRect.width, containerRect.height)) * 2000; // 最大2秒の伝播遅延
+                // 落下開始の伝播遅延を基準点からの距離で計算
+                const currentCharCenterX = initialLeft + charRect.width / 2;
+                const currentCharCenterY = initialTop + charRect.height / 2;
+                const distanceFromStartPoint = Math.sqrt(
+                    Math.pow(currentCharCenterX - startPointX, 2) +
+                    Math.pow(currentCharCenterY - startPointY, 2)
+                );
+                const propagationDelay = (distanceFromStartPoint / Math.max(window.innerWidth, window.innerHeight)) * 2000; // 最大2秒の伝播遅延
                 const finalDelay = delay + propagationDelay;
 
                 const rotateDeg = (Math.random() - 0.5) * 720; // -360degから360degの回転
                 const translateX = (Math.random() - 0.5) * 50; // 左右の揺れ
 
                 // 落下中のランダムな一時停止位置 (画面全体の30%〜70%の高さの範囲)
-                const stopY = window.innerHeight * (0.3 + Math.random() * 0.4); // 画面上部から30%〜70%の範囲
+                const stopY = window.innerHeight * (0.3 + Math.random() * 0.4);
 
-                char.style.setProperty('--stop-y', `${stopY - initialTop}px`); // 停止位置は初期位置からの相対的な移動量
+                // ⑤ 積もる位置は、画面の表示されている部分(相対サイズ)の下から20パーセントまで
+                // 元々の文字の位置が20パーセントより下のものは、画面外下方向に落ちていくようにする。
+                const bottom20PercentMark = window.innerHeight * 0.8;
+                let finalDropY; // 最終的な落下位置 (初期位置からのオフセット)
+
+                if (initialTop > bottom20PercentMark) {
+                    // 画面下20%より下にある文字は画面外へ落下
+                    finalDropY = (window.innerHeight + charRect.height) - initialTop; // 画面外に完全に落ちるように
+                } else {
+                    // それ以外の文字はランダムな停止位置 (stopY) に留まるか、下部20%に積もる
+                    finalDropY = stopY - initialTop; // stopYは絶対座標なので、initialTopからの相対オフセットを計算
+                }
+
+                char.style.setProperty('--target-y-offset', `${finalDropY}px`);
                 char.style.setProperty('--rotate-deg', `${rotateDeg}deg`);
 
-                // 引っかかって止まるアニメーションを適用
-                char.style.animation = `fall-and-stop ${animationDuration / 1000}s ease-out ${finalDelay / 1000}s forwards`;
+                // 適用するアニメーション
+                char.style.animation = `fall-and-hold ${animationDuration / 1000}s ease-out ${finalDelay / 1000}s forwards`;
 
-                // 崩れ落ちた文字を積もらせる処理 (今回は「引っかかって止まる」ため、積もる=止まる場所)
+                // 崩れ落ちた文字をその位置に固定する処理
                 setTimeout(() => {
                     char.style.position = 'absolute';
-                    // アニメーション後の最終位置を正確に設定
-                    // 左右の揺れを反映しつつ、停止位置に固定
                     char.style.left = `${initialLeft + translateX}px`;
-                    char.style.top = `${stopY}px`; // 引っかかって止まる高さ
-                    char.style.opacity = '1'; // フェードアウトしない
-                    char.style.transform = `translateZ(0) rotate(${rotateDeg}deg) scale(0.9)`; // 停止状態の見た目
-                    char.classList.add('stopped-char');
+                    char.style.top = `${initialTop + finalDropY}px`; // 初期位置 + 移動オフセットで最終位置
+                    char.style.opacity = '1';
+                    char.style.transform = `translateZ(0) rotate(${rotateDeg}deg) scale(0.9)`;
+                    // ここではまだstoryteller-charクラスは付与しない
                     char.style.animation = 'none'; // アニメーションを解除
                 }, finalDelay + animationDuration);
             });
 
-            // ⑥ 崩れ落ちた文字が全て積もる際に、大きな「storyteller」の形を形成
-            // 全ての文字の落下と停止が終わる時間を考慮
+            // ⑥ 「storyteller」の輪郭を浮かび上がらせる処理
+            // 全ての文字の落下と停止が終わるであろう時間
             const totalFallCompletionTime = 3000 + 2000 + 8000; // 最小開始遅延 + 最大伝播遅延 + 最大アニメーション時間
 
             setTimeout(() => {
-                // 積もった（引っかかって止まった）文字が「storyteller」に集まる準備
-                chars.forEach(char => {
-                    // transitionはCSSで.stopped-charに設定済み
-                    char.style.opacity = '0'; // 最終的に見えなくする
-                    // 集まる前にランダムな回転をさらに加える
-                    char.style.transform = `${char.style.transform} scale(0.1) rotateY(${Math.random() * 360}deg) rotateX(${Math.random() * 360}deg)`;
+                storytellerChars.forEach((char, i) => {
+                    // 各文字を「storyteller」の形を構成する位置へ移動
+                    const targetPos = storytellerTargetPositions[i];
+                    char.classList.add('storyteller-char'); // storytellerの文字としてスタイルを適用
+                    char.textContent = storytellerWord[i]; // 対応するstorytellerの文字に置き換え (見た目上)
+
+                    // ヌルッと集まるアニメーション
+                    char.style.left = `${targetPos.left}px`;
+                    char.style.top = `${targetPos.top}px`;
+                    char.style.opacity = '1'; // 透明から表示へ
+                    char.style.transform = 'translateZ(0) rotate(0deg) scale(1)'; // 正しい向きとサイズへ
                 });
 
-                // ⑦ ⑧で表示されたstorytellerは、画面中央に移動するとともに、指定したフォントとなる。その後消えずに残る
-                // 積もった文字が消え、storytellerが現れるまでの時間
+                // 「storyteller」のテキスト自体を中央に表示
                 setTimeout(() => {
-                    finalStoryteller.style.opacity = '1';
-                    finalStoryteller.style.transform = 'translate(-50%, -50%) scale(1)'; // 中央に移動し、元のサイズに戻す
-                }, 1500); // charsが完全に消えるのを待つ
+                    finalStorytellerText.style.opacity = '1';
+                    finalStorytellerText.style.transform = 'translate(-50%, -50%) scale(1)'; // 中央に移動し、元のサイズに戻す
+                }, 1500); // storytellerCharsが集まりきるのを待つ
             }, totalFallCompletionTime);
         }
 
