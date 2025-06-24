@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial=" initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FENG SHUI MASTER</title>
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500&display=swap" rel="stylesheet">
     <style>
@@ -48,6 +48,7 @@
                 transform: translateY(0) rotate(0deg) scale(1);
             }
             80% { /* 停止位置に到達 */
+                /* transform-originをbottomに設定することで、Y軸移動が下方向のみに */
                 transform: translateY(var(--target-y-offset)) rotate(var(--rotate-deg)) scale(0.9);
                 opacity: 1;
             }
@@ -59,7 +60,7 @@
 
         /* 落下後にその場に留まる文字（storytellerを形成しない文字）のスタイル */
         .stopped-char {
-            position: absolute; /* アニメーション終了後に絶対位置に固定 */
+            position: fixed; /* アニメーション終了後にviewport基準に固定 */
             opacity: 1;
             font-size: 3vw; /* 元のサイズを維持 */
             color: black;
@@ -71,7 +72,7 @@
 
         /* storytellerを形成する文字のスタイル */
         .storyteller-char {
-            position: absolute;
+            position: fixed; /* viewport基準に固定 */
             opacity: 0; /* 最初は透明 */
             color: black;
             font-family: 'Oswald', sans-serif;
@@ -125,6 +126,7 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
         const storytellerWord = "storyteller";
         let storytellerFormingChars = [];
 
+        // ③ ページ表示時に文章を表示
         function initializeText() {
             originalText.split('').forEach(char => {
                 const span = document.createElement('span');
@@ -136,20 +138,24 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
         }
 
         // 「storyteller」の形を形成するためのターゲット座標を計算
+        // 描画される「storyteller」のフォントサイズは固定で10vwとし、その各文字の相対位置を取得
         function getStorytellerCharTargetPositions(word, fontSizeVw = 10) {
             const tempDiv = document.createElement('div');
-            tempDiv.style.position = 'fixed'; // fixedにすることでviewport基準に
+            tempDiv.style.position = 'fixed'; // viewport基準で位置を取得
             tempDiv.style.opacity = '0';
             tempDiv.style.fontFamily = 'Oswald, sans-serif';
             tempDiv.style.fontWeight = '500';
             tempDiv.style.fontSize = `${fontSizeVw}vw`;
             tempDiv.style.whiteSpace = 'nowrap';
-            tempDiv.textContent = word;
+            tempDiv.textContent = word; // ダミーテキストを設定
             document.body.appendChild(tempDiv);
 
             const rect = tempDiv.getBoundingClientRect();
-            const textWidth = rect.width;
-            const textHeight = rect.height;
+            // storytellerの文字列全体の中央に配置するためのオフセット
+            const centerX = window.innerWidth / 2;
+            const centerY = window.innerHeight / 2;
+            const offsetX = centerX - rect.width / 2;
+            const offsetY = centerY - rect.height / 2;
 
             let positions = [];
             for (let i = 0; i < word.length; i++) {
@@ -163,21 +169,21 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
 
                 const charRect = charSpan.getBoundingClientRect();
                 positions.push({
-                    left: charRect.left, // viewport基準の絶対位置
-                    top: charRect.top // viewport基準の絶対位置
+                    // tempDivの中での相対位置 + tempDivの絶対位置オフセット
+                    left: charRect.left + offsetX - rect.left,
+                    top: charRect.top + offsetY - rect.top
                 });
                 tempDiv.removeChild(charSpan);
             }
             document.body.removeChild(tempDiv);
-
             return positions;
         }
 
+        // ④ 文字がバラバラと崩れ落ちるアニメーション
         function startFallingAnimation() {
-            const containerRect = textContainer.getBoundingClientRect();
             // 落下開始の基準点 (画面中央上部の左4分の1くらい)
-            const startPointX = window.innerWidth * 0.25;
-            const startPointY = window.innerHeight * 0.2;
+            const startPointX = window.innerWidth * 0.25; // 画面幅の左1/4
+            const startPointY = window.innerHeight * 0.2;  // 画面上部から20%くらい
 
             // storytellerを形成する文字の最終位置を事前に計算
             const storytellerTargetPositions = getStorytellerCharTargetPositions(storytellerWord, 10);
@@ -195,8 +201,8 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
                 const initialTop = charRect.top; // viewport基準の初期位置
                 const initialLeft = charRect.left; // viewport基準の初期位置
 
-                const delay = 3000 + Math.random() * 2000;
-                const animationDuration = 6000 + Math.random() * 2000;
+                const delay = 3000 + Math.random() * 2000; // 3秒後からランダムに2秒追加
+                const animationDuration = 6000 + Math.random() * 2000; // 6秒〜8秒かけて落下
 
                 const currentCharCenterX = initialLeft + charRect.width / 2;
                 const currentCharCenterY = initialTop + charRect.height / 2;
@@ -207,25 +213,27 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
                 const propagationDelay = (distanceFromStartPoint / Math.max(window.innerWidth, window.innerHeight)) * 2000;
                 const finalDelay = delay + propagationDelay;
 
-                const rotateDeg = (Math.random() - 0.5) * 720;
-                const translateX = (Math.random() - 0.5) * 50;
+                const rotateDeg = (Math.random() - 0.5) * 720; // -360degから360degの回転
+                const translateX = (Math.random() - 0.5) * 50; // 左右の揺れ
 
                 // ⑤ 積もる位置は、画面の表示されている部分(相対サイズ)の下から20パーセントまで
                 const bottom20PercentMark = window.innerHeight * 0.8;
                 let targetAbsoluteY; // 最終的なY軸の絶対位置 (viewport基準)
 
-                if (initialTop >= bottom20PercentMark - charRect.height) { // 文字の下端が20%ラインを超えているか
-                    // 元の文字の位置が下20%ラインよりも下にある文字は画面外へ落下
-                    targetAbsoluteY = window.innerHeight + charRect.height; // 画面外に完全に落ちるように
+                // 元の文字の位置が下20%ラインよりも下にある文字は画面外へ落下
+                // 文字の上端が20%ラインより下か、文字全体が20%ラインより下か
+                if (initialTop >= bottom20PercentMark - charRect.height) {
+                    targetAbsoluteY = window.innerHeight + charRect.height * 2; // 画面外に完全に落ちるように（余裕を持たせる）
                 } else {
                     // それ以外の文字はランダムな停止位置に留まる
-                    // stopYは、画面上部から30%〜70%の範囲の絶対位置
-                    targetAbsoluteY = window.innerHeight * (0.3 + Math.random() * 0.4);
+                    // 文字の上端が画面上部から30%〜70%の範囲で停止するように
+                    targetAbsoluteY = Math.max(initialTop, window.innerHeight * (0.3 + Math.random() * 0.4));
                 }
                 
                 // transform: translateY() は要素自身の初期位置からの相対移動なので、
                 // finalAbsoluteY - initialTop で計算
-                const targetYOffset = targetAbsoluteY - initialTop;
+                // ここでtargetYOffsetが負にならないようにMath.maxで制限
+                const targetYOffset = Math.max(0, targetAbsoluteY - initialTop);
 
                 char.style.setProperty('--target-y-offset', `${targetYOffset}px`);
                 char.style.setProperty('--rotate-deg', `${rotateDeg}deg`);
@@ -255,7 +263,7 @@ STREET ARTIST CHINESE MEDICINE DOCTOR / BARBER PROFESSOR`;
                     // CSSトランジションを適用する前に、クラスを追加
                     char.classList.remove('stopped-char');
                     char.classList.add('storyteller-char');
-                    char.style.position = 'fixed'; // fixedにしてviewport基準で移動
+                    // position:fixed はすでについている
 
                     // ヌルッと移動してstorytellerの形を形成
                     char.style.left = `${targetPos.left}px`;
